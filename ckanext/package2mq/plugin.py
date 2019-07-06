@@ -10,6 +10,18 @@ import logging
 
 
 log = logging.getLogger(__name__)
+def get_info(context,pkg_dict,type_name):
+    connection = pika.BlockingConnection(pika.ConnectionParameters\
+        (constants.RABBITMQ_HOST,constants.RABBITMQ_PORT,'/',constants.credentials))        
+    channel = connection.channel()
+    channel.queue_declare(queue=constants.RABBITMQ_QUEUE)
+    job_content= merge_two_dicts(get_useful_info_context(context), pkg_dict)
+    job_content['action_type']=type_name
+    channel.basic_publish(exchange='',
+                    routing_key=constants.RABBITMQ_QUEUE,
+                    body=json.dumps(job_content,default=str))
+    connection.close()    
+    return pkg_dict
 def merge_two_dicts(x, y):
     z = x.copy()   # start with x's keys and values
     z.update(y)    # modifies z with y's keys and values & returns None
@@ -32,40 +44,8 @@ class Package2MqPlugin(plugins.SingletonPlugin):
         toolkit.add_resource('fanstatic', 'package2mq')
 
     def after_create(self, context, pkg_dict):
-        connection = pika.BlockingConnection(pika.ConnectionParameters\
-            (constants.RABBITMQ_HOST,constants.RABBITMQ_PORT,'/',constants.credentials))        
-        channel = connection.channel()
-        channel.queue_declare(queue=constants.RABBITMQ_QUEUE)
-        job_content= merge_two_dicts(get_useful_info_context(context), pkg_dict)
-        job_content['action_type']='create'
-        channel.basic_publish(exchange='',
-                        routing_key=constants.RABBITMQ_QUEUE,
-                        body=json.dumps(job_content,default=str))
-        connection.close()
-        return pkg_dict    
-
+        return get_info(context,pkg_dict,"create")
     def after_update(self, context, pkg_dict):
-        connection = pika.BlockingConnection(pika.ConnectionParameters\
-            (constants.RABBITMQ_HOST,constants.RABBITMQ_PORT,'/',constants.credentials))
-        channel = connection.channel()
-        channel.queue_declare(queue=constants.RABBITMQ_QUEUE)
-        job_content= merge_two_dicts(get_useful_info_context(context), pkg_dict)
-        job_content['action_type']='update'
-        channel.basic_publish(exchange='',
-                        routing_key=constants.RABBITMQ_QUEUE,
-                        body=json.dumps(job_content,default=str))
-        connection.close()
-        return pkg_dict
-
+        return get_info(context,pkg_dict,"update")
     def after_delete(self, context, pkg_dict):
-        connection = pika.BlockingConnection(pika.ConnectionParameters\
-            (constants.RABBITMQ_HOST,constants.RABBITMQ_PORT,'/',constants.credentials))
-        channel = connection.channel()
-        channel.queue_declare(queue=constants.RABBITMQ_QUEUE)
-        job_content= merge_two_dicts(get_useful_info_context(context), pkg_dict)
-        job_content['action_type']='delete'
-        channel.basic_publish(exchange='',
-                        routing_key=constants.RABBITMQ_QUEUE,
-                        body=json.dumps(job_content,default=str))
-        connection.close()
-        return pkg_dict
+        return get_info(context,pkg_dict,"delete")
